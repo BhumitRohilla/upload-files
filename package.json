@@ -1,0 +1,44 @@
+{
+  "name": "upload-files",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": " nodemon",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.645.0",
+    "@aws-sdk/s3-presigned-post": "^3.645.0",
+    "@aws-sdk/s3-request-presigner": "^3.645.0",
+    "@radix-ui/react-progress": "^1.1.0",
+    "axios": "^1.7.7",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.13",
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1",
+    "lucide-react": "^0.439.0",
+    "mongoose": "^8.6.1",
+    "next": "14.2.8",
+    "pino": "^9.4.0",
+    "plyr-react": "^5.3.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "tailwind-merge": "^2.5.2",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.8",
+    "nodemon": "^3.1.5",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}
