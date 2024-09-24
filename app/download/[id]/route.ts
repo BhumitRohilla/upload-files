@@ -9,14 +9,14 @@ import { getDownloadURL } from '@/lib';
 
 export const GET = async (req: Request, { params }: { params : { id: string } }) => {
     try {
-        const { id } = params
+    const { id } = params
         const content = await findUrlByToken(id);
         if (!content) throw new CustomError(404, 'Cannot find the file against the given token.', 'Cannot find the file against the given token.');
 
         const s3Url = new URL(content.url);
         const s3Path = s3Url.pathname;
         console.log(s3Path);
-        const url = await getDownloadURL(s3Path, 'test');
+        const url = await getDownloadURL(s3Path);
         return NextResponse.redirect(url)
     } catch (error) {
         logger.error({ err: error }, 'Error handling file upload');

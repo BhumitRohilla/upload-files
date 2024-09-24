@@ -1,5 +1,4 @@
 import dayjs from 'dayjs';
-import type { NextApiHandler, NextApiRequest, NextApiResponse } from "next";
 import crypto from 'crypto';
 import { CreatePresignedURL, CreatePresignedMultipartURL, CustomError } from "../../../lib";
 import { validContentType } from '../../../constant';
@@ -17,7 +16,7 @@ const uploadSchema = z.object({
     fileSize: z.number().optional(),
 });
 
-export const POST = async (req: Request, context: any) => {
+export const POST = async (req: Request) => {
     try {
         const parsedBody = await req.json();
         const data = uploadSchema.parse(parsedBody);

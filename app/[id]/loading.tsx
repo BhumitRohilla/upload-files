@@ -1,7 +1,7 @@
 "use client"
 
 import { Spinner } from "@/components/ui/spinner";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 export default function Loading() {
 	const titleRef = useRef<HTMLParagraphElement>(null);
@@ -9,7 +9,7 @@ export default function Loading() {
 		let interval: NodeJS.Timeout | null = null;
 		interval = setInterval(() => {
 			if (titleRef.current) {
-				let title = titleRef.current.innerText;
+				const title = titleRef.current.innerText;
 				const numberOfDots = title.replace("Loading", "").length;
 				let newNumber = numberOfDots
 				if (numberOfDots > 3) {

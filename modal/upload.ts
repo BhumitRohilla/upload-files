@@ -1,4 +1,4 @@
-import { displaystatus } from '@/constant';
+import { displaystatus } from '../constant';
 import mongoose, { Schema } from 'mongoose'
 
 const schema = new Schema({

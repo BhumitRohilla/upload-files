@@ -1,7 +1,7 @@
 'use client'
 
 import Plyr from 'plyr-react';
-import React, { useMemo } from 'react';
+import React from 'react';
 import 'plyr-react/plyr.css'
 
 interface VideoPreviweProp {

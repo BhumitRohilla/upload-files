@@ -1,7 +1,6 @@
 'use server'
 
 import { CustomError, commitUploadFile } from "@/lib";
-import { NextApiHandler } from "next";
 import { z, ZodError } from 'zod';
 import logger from '../../../lib/logger';
 import redis, { redisConstants } from "@/lib/redis";

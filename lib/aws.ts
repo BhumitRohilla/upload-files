@@ -87,7 +87,7 @@ export async function commitUploadFile(location: string, uploadId: string, parts
 }
 
 
-export async function getDownloadURL(location: string, fileName: string) {
+export async function getDownloadURL(location: string) {
     location = location.replace(`/${BUCKET_NAME}/`, '');
     return await getSignedUrl(client, new GetObjectCommand({
         Bucket: (BUCKET_NAME as string),
