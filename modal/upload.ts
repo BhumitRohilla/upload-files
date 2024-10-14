@@ -7,7 +7,7 @@ const schema = new Schema({
     'expireTime': {type: String, required: true},
     'primeUser': {type: String, default: false}, // this could be identifiable information
     'contentType': {type: String, required: true},
-    'displayStatus': {type: Number, required: true, default: displaystatus.active}
+    'displayStatus': {type: Number, required: true, default: displaystatus.pending},
 }, {timestamps: true})
 schema.index({token: 1}, {background: true, unique: true});
 

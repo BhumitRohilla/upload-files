@@ -3,9 +3,11 @@ dotenv.config();
 import { createServer } from "http";
 import { parse } from "url";
 import next from "next";
+
 import redis, { redisConstants } from './lib/redis';
 import {findUrlByToken} from './controller/uploadController'
 import logger from './lib/logger';
+import { createSQSConsumer } from './services/sqs';
 
 const port = parseInt(process.env.PORT || "3000", 10);
 const dev = process.env.NODE_ENV !== "production";
@@ -39,4 +41,23 @@ app.prepare().then(() => {
 });
 
 
+if (
+	!process.env.SQS_QUEUE ||
+	!process.env.AWS_REGION ||
+	!process.env.AWS_KEY || 
+	!process.env.AWS_SECRETE
+) {
+	logger.error('SQS is not set properly SQS_QUEUE is missing from .env. Will not start the server.');
+} else {
+	createSQSConsumer({
+		MaxNumberOfMessage: 1,
+		queueURL: process.env.SQS_QUEUE,
+		region: process.env.AWS_REGION,
+		credentials : {
+			assessKeyId: process.env.AWS_KEY,
+			secretAccessKey: process.env.AWS_SECRETE,
+		},
+		WaitTimeSecond: 30,
+	})
+}
 

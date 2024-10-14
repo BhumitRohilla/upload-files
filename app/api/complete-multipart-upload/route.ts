@@ -15,7 +15,7 @@ const multiPartUploadSchema = z.object({
     })).nonempty("Parts cannot be empty")
 });
 
-export const POST = async (req: Request) => {
+export const PUT = async (req: Request) => {
     try {
         const body = await req.json();
         const data = multiPartUploadSchema.parse(body);

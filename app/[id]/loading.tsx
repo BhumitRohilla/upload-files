@@ -32,7 +32,7 @@ export default function Loading() {
 		}
 	}, []);
     return (
-		<div className="w-full h-full">
+		<div id="loading" className="w-full h-full">
 			<div className="w-full h-full flex items-center justify-center flex-col">
 				<Spinner show={true} size="large" className="text-[#ededed]"/>
 				<p ref={titleRef} className="mt-2">

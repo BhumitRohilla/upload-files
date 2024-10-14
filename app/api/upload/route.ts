@@ -23,9 +23,8 @@ export const POST = async (req: Request) => {
         if (!validContentType.some(regex => regex.test(data.contentType))) {
             throw new CustomError(400, 'Unsupported File Type', 'The type of file you are trying to upload is not supported');
         }
-        const filePath = `upload/${crypto.randomBytes(20).toString('hex')}/${data.fileName || crypto.randomBytes(20).toString('hex')}`;
         const token = crypto.randomBytes(20).toString('hex');
-
+        const filePath = `upload/${token}/${data.fileName? encodeURIComponent(data.fileName):crypto.randomBytes(20).toString('hex')}`;
         const responseObj: Record<string, string | boolean | Array<string> | PresignedPost> = {
             token,
         };
@@ -43,9 +42,8 @@ export const POST = async (req: Request) => {
         } else {
             responseObj.uploadUrl = await CreatePresignedURL(filePath, data.contentType);
         }
-        
         await controller.UserController.addFileToUser({
-            url: `${process.env.AWS_ENDPOINT}/${process.env.BUCKET_NAME}/${filePath}`,
+            url: new URL(`${process.env.AWS_ENDPOINT}/${process.env.BUCKET_NAME}/${filePath}`).toString(),
             token,
             expireTime: dayjs().add(30, 'day').toDate(),
             contentType: data.contentType,

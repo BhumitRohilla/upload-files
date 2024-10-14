@@ -1,20 +1,22 @@
 "use client"
 
-import { ChangeEvent, useCallback, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useMemo, useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {Copy} from 'lucide-react'
 import Link from 'next/link'
 import { AlertContext, AlertType } from './alert'
 import { useContext } from "react";
 import { Loader2 } from "lucide-react"
-import axios from "axios";
+import axios, { AxiosError, CancelTokenSource } from "axios";
 import { Progress } from "@/components/ui/progress";
 
 export default function Home() {
   const [fileName, setFileName] = useState<string>('');
   const [fileType, setFileType] = useState<string>('');
   const [shortURL, setShortUrl] = useState<string>('');
+  const [reqCancelFunction, setReqCancelFunction] = useState< CancelTokenSource  | null >(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [showRetryButton, setShowRetryButton] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const { showAlert } = useContext(AlertContext);
 
@@ -26,82 +28,216 @@ export default function Home() {
       fileInputRef.current.click()
     }
   }, []);
+
+  const handleCancelRequest = useCallback(() => {
+    if (reqCancelFunction) {
+      reqCancelFunction.cancel();
+      setReqCancelFunction(null);
+    }
+  }, [reqCancelFunction, setReqCancelFunction]);
+
   const removeFile = useCallback(() => {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+    handleCancelRequest();
     setFileName('')
     setFileType('');
-  }, [setFileName, setFileType]);
+    multipartUploadHandlerRef.current = null;
+  }, [setFileName, setFileType, handleCancelRequest]);
 
-  const handleMultiPartUpload = useCallback(async (response: { uploadUrls: Array<string> }) => {
+  const multipartUploadHandlerRef = useRef<{ uploadUrls: Array<string>, currentIndex: number, parts: Array<{ETag: string, PartNumber: number}>, token: string } | null>(null)
+
+  const handleMultiPartUploadWithRetry = useCallback( async () => {
+    let isCanceled = false;
+    try {
+      setShowRetryButton(false);
+      setLoading(true);
+      const file = fileInputRef?.current?.files?.[0];
+      if (!file) {
+        return false;
+      }
+      if (!multipartUploadHandlerRef.current) {
+        return;
+      }
+      const source = axios.CancelToken.source();
+      const chunkSize = Math.ceil(file.size / multipartUploadHandlerRef.current.uploadUrls.length);
+      let offset = 0;
+      let numberOfContinuousFailure = 0;
+      let totalFileUpload = chunkSize * multipartUploadHandlerRef.current.currentIndex;
+      while ( multipartUploadHandlerRef.current.currentIndex < multipartUploadHandlerRef.current.uploadUrls.length) {
+        try {
+          if (numberOfContinuousFailure > 3) {
+            break;
+          }
+          const index = multipartUploadHandlerRef.current.currentIndex;
+          console.log(`Uploading at index: ${index}`);
+          const url = multipartUploadHandlerRef.current.uploadUrls[index];
+          const endOffset = Math.min(offset + chunkSize, file.size);
+          const blob = file.slice(offset, endOffset);
+          const formData = new FormData();
+          formData.append('file', blob);
+          const uploadResponse = await axios.put(url, formData, {
+            cancelToken: source.token,
+            timeout: 2 * 60 * 1000,
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+          totalFileUpload += chunkSize;
+          setUploadProgress(Math.round((totalFileUpload / file.size) * 100));
+          multipartUploadHandlerRef.current.parts.push({
+            ETag:  uploadResponse.headers['etag'],
+            PartNumber: index + 1,
+          })
+          offset = endOffset;
+          numberOfContinuousFailure = 0;
+          multipartUploadHandlerRef.current.currentIndex++;
+        } catch (error) {
+          console.log('Some Error Occured');
+          numberOfContinuousFailure++;
+          console.log(error);
+          if (axios.isCancel(error)) {
+            isCanceled = true;
+            break;
+          }
+          console.log(error);
+        }
+      }
+      console.log('Outside function');
+      if (numberOfContinuousFailure > 3) {
+        throw new Error('Unable to continue upload, please check your network connection then retry to continue from where you left.');
+      }
+      await axios.put('/api/complete-multipart-upload', {
+        token: multipartUploadHandlerRef.current.token,
+        parts: multipartUploadHandlerRef.current.parts,
+      });
+      setShowRetryButton(false);
+      setLoading(false);
+      setShortUrl(`${window.location.protocol}//${window.location.host}/${multipartUploadHandlerRef.current.token}`)
+      showAlert({
+        message: 'File uploaded successfully.',
+        time: 4,
+        title: 'Success',
+        type: AlertType.success,
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      setFileName('');
+    } catch (error) {
+      console.log('Completely outside');
+      console.log(error);
+      if (!multipartUploadHandlerRef.current || isCanceled) {
+        multipartUploadHandlerRef.current = null;
+        setLoading(false);
+        return;
+      }
+      setShowRetryButton(true);
+      setLoading(false);
+      if (error instanceof AxiosError && axios.isCancel(error)) {
+        return;
+      }
+      if (error instanceof AxiosError) {
+        return showAlert({
+          message: error.response?.data?.message ?? error.response?.data?.error ?? error.message,
+          time: 4,
+          title: 'Something went wrong',
+          type: AlertType.error,
+        })
+      }
+      if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+        showAlert({
+          message: error?.message ?? error ?? '',
+          time: 4,
+          title: 'Something went wrong',
+          type: AlertType.error,
+        });
+      }
+    }
+  }, [setUploadProgress]);
+
+  const handleMultiPartUpload = useCallback(async (response: { uploadUrls: Array<string> }, token: string) => {
     const file = fileInputRef?.current?.files?.[0];
     if (!file) {
       return false;
     }
-  
-    const parts: Array<{ ETag: string, PartNumber: number }> = [];
-    const chunkSize = Math.ceil(file.size / response.uploadUrls.length);
-    let offset = 0;
-    let totalFileUpload = 0;
-  
-    for (let index = 0; index < response.uploadUrls.length; ++index) {
-      try {
-        const url = response.uploadUrls[index];
-        const endOffset = Math.min(offset + chunkSize, file.size); // Ensure endOffset does not exceed file size
-        const blob = file.slice(offset, endOffset);
-        const formData = new FormData();
-        formData.append('file', blob);
-  
-        const uploadResponse = await axios.put(url, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        totalFileUpload += chunkSize;
-        setUploadProgress(Math.round((totalFileUpload / file.size) * 100));
-        parts.push({ ETag: uploadResponse.headers['etag'], PartNumber: index + 1 });
-        offset = endOffset;
-      } catch (error) {
-        if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ) {
-          throw new Error(error?.message);
-        }
-        throw new Error('Something went wrong');
-      }
+    multipartUploadHandlerRef.current = {
+      uploadUrls: response.uploadUrls,
+      currentIndex: 0,
+      parts: [],
+      token: token,
     }
-  
-    return parts;
-  }, [setUploadProgress]);  
+    handleMultiPartUploadWithRetry();
+  }, [handleMultiPartUploadWithRetry]); 
 
-  const handleSimpleUpload = useCallback(async (response: {url: string, fields: {[key: string]: string}}) => {
-    if (!formRef.current) {
-      return false;
-    }
-    const formData = new FormData(formRef.current);
-    const url = response.url;
-    const fields = response.fields;
-    const formDataToSend = new FormData();
-    Object.keys(fields).forEach((key) => {
-      formDataToSend.set(key, fields[key]);
-    });
-    formData.forEach((value, key) => {
-      formDataToSend.set(key, value);
-    })
-    return axios.post(url, formDataToSend, {
-      'headers': {
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress: (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / (event.total ?? 1)) * 100);
-          setUploadProgress(progress);
-        }
+  const handleSimpleUpload = useCallback(async (response: {url: string, fields: {[key: string]: string}}, token: string) => {
+    const source = axios.CancelToken.source();
+    setReqCancelFunction(source)
+    try {
+      if (!formRef.current) {
+        return false;
       }
-    });
-  }, [setUploadProgress]);
+
+      const formData = new FormData(formRef.current);
+      const url = response.url;
+      const fields = response.fields;
+      const formDataToSend = new FormData();
+      Object.keys(fields).forEach((key) => {
+        formDataToSend.set(key, fields[key]);
+      });
+      formData.forEach((value, key) => {
+        formDataToSend.set(key, value);
+      })
+      await axios.post(url, formDataToSend, {
+        cancelToken: source.token,
+        'headers': {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / (event.total ?? 1)) * 100);
+            setUploadProgress(progress);
+          }
+        }
+      });
+      setShortUrl(`${window.location.protocol}//${window.location.host}/${token}`)
+      showAlert({
+        message: 'File uploaded successfully.',
+        time: 4,
+        title: 'Success',
+        type: AlertType.success,
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      setFileName('');
+    } catch (error) {
+      if (error instanceof AxiosError && axios.isCancel(error)) {
+        return;
+      }
+      if (error instanceof AxiosError) {
+        return showAlert({
+          message: error.response?.data?.message ?? error.response?.data?.error ?? error.message,
+          time: 4,
+          title: 'Something went wrong',
+          type: AlertType.error,
+        })
+      }
+      if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+        showAlert({
+          message: error?.message ?? error ?? '',
+          time: 4,
+          title: 'Something went wrong',
+          type: AlertType.error,
+        });
+      }
+    }
+  }, [setUploadProgress, setReqCancelFunction]);
 
   const handleFileUpload = useCallback(async () => {
     try {
+      setUploadProgress(0);
       setShortUrl('');
       if(loading) {
         return;
@@ -121,6 +257,7 @@ export default function Home() {
       if ((file.size / 1024 / 1024) > 10 ) {
         useMultiPartUpload = true;
       }
+
       const response = await axios.post('/api/upload', {
         contentType: fileType,
         fileName: fileName,
@@ -131,40 +268,31 @@ export default function Home() {
         throw new Error(response.data.error);
       }
       const {token, uploadUrl, uploadUrls} = response.data;
-      if (uploadUrls) { 
-        const parts = await handleMultiPartUpload({uploadUrls});
-        await axios.put('/api/complete-multipart-upload', {
-          token: token,
-          parts: parts,
-        });
+
+      if (uploadUrls) {
+        await handleMultiPartUpload({uploadUrls}, token);
       }
       if (uploadUrl) {
-        await handleSimpleUpload(uploadUrl);
+        await handleSimpleUpload(uploadUrl, token);
       }
-      setShortUrl(`${window.location.protocol}//${window.location.host}/${token}`)
-      showAlert({
-        message: 'File uploaded successfully.',
-        time: 10,
-        title: 'Success',
-        type: AlertType.success,
-      });
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      setFileName('');
     } catch (error) {
+      if (error instanceof AxiosError) {
+        return showAlert({
+          message: error.response?.data?.message ?? error.response?.data?.error ?? error.message,
+          time: 2,
+          title: 'Something went wrong',
+          type: AlertType.error,
+        })
+      }
       if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
         showAlert({
           message: error?.message ?? error ?? '',
-          time: 2,
+          time: 4,
           title: 'Something went wrong',
           type: AlertType.error,
         });
       }
       console.error(error);
-    } finally{
-      setLoading(false);
-      setUploadProgress(0)
     }
   }, [fileType, fileName, showAlert, setFileName, setUploadProgress]);
 
@@ -180,7 +308,7 @@ export default function Home() {
     console.log(stringToCopy);
     window.navigator.clipboard.writeText(stringToCopy);
     showAlert({
-      time: 10,
+      time: 4,
       title: 'Link Copied.',
       type: AlertType.success,
     });
@@ -195,7 +323,14 @@ export default function Home() {
         </h1>
         <div>
           <div className="flex justify-center gap-2 pt-7 pb-7">
-            <button onClick={fileName?handleFileUpload:addFile} disabled={loading} className={`bg-red-600 disabled:bg-red-900 border-red-600 border-solid  p-1 px-3 rounded hover:bg-red-700 active:bg-red-900`}>{loading?<p className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading</p>:fileName?'Upload':'Select'}</button>
+            <UploadButton
+              fileName={fileName}
+              loading={loading}
+              retry={showRetryButton}
+              add={addFile}
+              handleRetry={handleMultiPartUploadWithRetry}
+              handleUpload={handleFileUpload}
+            />
             <button onClick={removeFile} className="p1 px-3 rounded bo border-solid border-gray-300 hover:bg-gray-300 hover:text-black delay-100 transition-colors ease-in-out border-[2px]">Cancel</button>
           </div>
           <form ref={formRef}>
@@ -231,4 +366,30 @@ export default function Home() {
       </footer>
     </div>
   );
+}
+
+interface UploadButtonProps {
+  retry: boolean,
+  loading: boolean,
+  fileName: string,
+  add: () => void,
+  handleUpload: () => void,
+  handleRetry: () => void,
+}
+
+function UploadButton(props: UploadButtonProps) {
+  const { retry, loading, fileName, add, handleUpload, handleRetry } = props;
+  const {buttonText, onClickFunction} = useMemo(() => {
+    if (retry) {
+      return {buttonText: <p>Retry</p>, onClickFunction: handleRetry}
+    };
+    if (loading) {
+      return {buttonText: <p className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading</p>, onClickFunction: () => {}}
+    }
+    if (fileName) {
+      return {buttonText: <p>Upload</p>, onClickFunction: handleUpload}
+    }
+    return {buttonText: <p>Select</p>, onClickFunction: add}
+  }, [retry, loading,fileName]);
+  return <button onClick={onClickFunction} disabled={loading} className={`bg-red-600 disabled:bg-red-900 border-red-600 border-solid  p-1 px-3 rounded hover:bg-red-700 active:bg-red-900`}>{buttonText}</button>
 }
