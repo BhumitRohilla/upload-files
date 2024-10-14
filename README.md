@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# file-upload
+
+This project is a file upload service built with Next.js, Tailwind CSS, ShadCN UI, TypeScript, MongoDB, Redis, AWS S3, and AWS SNS. The application enables users to upload files securely and manage them, leveraging AWS services for storage and notifications.
+
+## Features
+
+- **Next.js**: Fast, server-rendered React framework for seamless client-side experience.
+- **Tailwind CSS & ShadCN UI**: Styling with utility-first CSS framework and ShadCN UI for customizable components.
+- **TypeScript**: Provides type safety and better developer experience.
+- **MongoDB**: Database to store file metadata and user information.
+- **Redis**: For caching.
+- **AWS S3**: Storage solution for securely storing uploaded files.
+- **AWS SNS**: Notifications service to send alerts for file uploads.
+
+## Prerequisites
+
+- Node.js
+- MongoDB
+- Redis
+- AWS Account with S3 and SNS access
 
 ## Getting Started
 
-First, run the development server:
+1. **Clone the repository**:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+   ```bash
+   git clone https://github.com/your-username/file-upload.git
+   cd file-upload
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Install dependencies:**
+   ```bash
+   pnpm install
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Set up environment variables:**
+   ```bash
+   AWS_KEY=
+   AWS_SECRETE=
+   BUCKET_NAME=
+   AWS_ENDPOINT=
+   AWS_REGION=
+   SQS_QUEUE=
+   MONGODB_URL=
+   REDIS_HOST=
+   REDIS_PORT=
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Run the development server:**
+   ```bash
+   pnpm run dev
+   ```
+   Visit http://localhost:3000 to view the application.
 
-## Learn More
+## Scripts
+* ```pnpm run dev```: Runs the app in development mode with hot-reloading enabled.
+* ```pnpm run build```: Builds the application for production.
+* ```pnpm run start```: Starts the production server.
+* ```pnpm run lint```: Lints the code for any issues.
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment
+   To deploy this application, consider using services like Vercel, AWS Elastic Beanstalk, or similar. Ensure your environment variables are set correctly in the deployment environment.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   This project is licensed under the MIT License.
