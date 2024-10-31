@@ -12,7 +12,10 @@ const VideoPreview = (props: VideoPreviweProp) => {
     const { url } = props;
     return (
         <div style={{ maxWidth: '1024px', height: '100%' }}>
-            <Plyr src={url} source={null} />
+            <Plyr
+                src={url}
+                source={null}
+            />
         </div>
     ) 
 }

@@ -232,6 +232,8 @@ export default function Home() {
           type: AlertType.error,
         });
       }
+    } finally {
+      setLoading(false);
     }
   }, [setUploadProgress, setReqCancelFunction]);
 

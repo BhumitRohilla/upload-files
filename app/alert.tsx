@@ -1,4 +1,7 @@
 "use client"
+
+//TODO Error time should only reduce when the user has seen the error. If not it should not increase making user experience better.
+
 import React, { createContext, useState, useCallback, useEffect } from 'react'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 
